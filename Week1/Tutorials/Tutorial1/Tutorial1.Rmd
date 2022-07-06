@@ -1,0 +1,126 @@
+---
+title: 'Tutorial 1: linear regression and k-nearest neighbours classification'
+author: "Sarah Filippi"
+date: "5 July 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Getting started**
+
+You will need to install a few packages. In R, any package on CRAN (https://cran.r-project.org) is available by typing: 
+
+``install.packages("package-name")``
+
+Install the following packages:
+
+* https://cran.r-project.org/web/packages/TH.data/index.html
+* https://cran.r-project.org/web/packages/car/index.html
+
+You only need to install a package in R once. Now you should be able to load the packages and get the dataset we're interested into memory:
+```{r message=FALSE}
+library(TH.data)
+library(car)
+```
+
+```{r echo=FALSE}
+options(width=120)
+```
+
+
+## Linear regression
+
+This question will consider the bodyfat dataset:
+```{r}
+data(bodyfat)
+head(bodyfat)
+```
+
+**Regression: preliminary tasks**
+
+* Read the documentation for bodyfat by typing ?bodyfat
+* Make plots to investigate relationships amongst the predictor variables
+* Make plots to investigate relationships between the predictor variables and the label we wish to predict, ``DEXfat``
+
+To get you started, here are a few plots. You can also consider using ``scatterplot.matrix`` from the ``car`` library.
+```{r}
+plot(bodyfat$hipcirc,bodyfat$waistcirc)
+plot(bodyfat$hipcirc,bodyfat$DEXfat)
+```
+
+**Analysis**
+
+* Make a table of the correlations between each predictor variable and "DEXfat", ranked from largest (in magnitude) to small (in magnitude). Which predictor variables are most correlated with "DEXfat"?
+* Fit a series of linear models using ``lm`` with: just an intercept term, an intercept and the highest correlated predictor, an intercept and the two highest correlated predictors, and so on.
+* Which model do you think is the best? Why?
+* Perform leave-one-out cross-validation and compare the models in terms of average leave-one-out Sum of Square Errors.
+
+
+## Classification
+
+The MNIST dataset contains hand-written images of the digits from 0 to 9. We will focus on binary classification to see if we can build a classifier to distinguish between twos and fives. But first, we will try linear regression and see why it is not a great choice for classification. 
+
+Here are a few examples of the input data:
+
+```{r}
+load("data/mnist-2s-and-5s.RData")
+marsave=par("mar")
+par(mfrow=c(2,5))
+par(mar=c(0, 0, 0, 0), xaxs='i', yaxs='i')
+
+plot.digit = function(im) {
+    image(1:28, 1:28, t(apply(im, 2, rev)) , col=gray((0:255)/255), 
+          xaxt='n',yaxt='n',xlab='n',ylab='n')
+}
+
+for(digit in c(2,5)) {
+  for (idx in which(y_train == digit)[1:5]) { 
+    plot.digit(x_train[idx,,])
+  }
+}
+```
+
+**Tasks**
+
+* Inspect the data. What format are the inputs? What format are the outputs? How big is the training dataset, ``x_train`` and ``y_train``? How big is the test dataset, ``x_test`` and ``y_test``?
+* Linear regression is not usually recommended for binary classification, but we could try it. Here is a try:
+```{r}
+X_train = as.data.frame(data.matrix(array(x_train,c(nrow(x_train),28*28)))) # reshape the inputs for linear regression
+X_train$y = y_train
+fit = lm(y ~ ., data=X_train)
+```
+* Why is linear regression a bad choice theoretically? In practice, what is wrong about our application of linear regression? Hint: look at the predictions on the training and testing data. 
+```{r}
+X_test = as.data.frame(data.matrix(array(x_test,c(nrow(x_test),28*28))))
+X_test$y = y_test
+y_train_hat = predict(fit,X_train)
+y_test_hat = predict(fit,X_test)
+```
+* What do you think went wrong with our model when faced with the following observations? Check the coefficients of the linear model using ```coef()```. (Hint: this is an example of overfitting.)
+```{r}
+which.min(y_test_hat)
+which.max(y_test_hat)
+plot.digit(x_test[which.min(y_test_hat),,])
+plot.digit(x_test[which.max(y_test_hat),,])
+```
+
+**Build a k-nearest neighbours classifier**
+
+* Now we are ready to try an actual classification method! Implement, from scratch, a k-nearest neighbours method. Your implementation should be in the form of a function or set of functions. It should take an input dataset ``X``, set of labels ``y``, value ``k`` (the number of nearest neighbours), and a new input ``xstar`` and it should return a probabilistic classification between 0 and 1 giving the probability that ``xstar`` is a 5. Write your function without a for loop! To test it, you should start with a small random sample of the inputs, e.g.:
+```{r}
+X_train = data.matrix(array(x_train,c(nrow(x_train),28*28)))
+ii = sample(nrow(X_train),200)
+X_train1 = X_train[ii,]
+y_train1 = y_train[ii]
+```
+
+```
+knn = function(X,y,k,xstar) {
+  # code goes here
+}
+```
+
+* Test your classifier on a few training instances. Test your classifier on a few testing instances. Test your classifier on the instances that the linear regression classifier had trouble with above. What do you observe? Try different values of k. What do you observe? 

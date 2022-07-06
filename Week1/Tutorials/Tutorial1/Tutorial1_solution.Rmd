@@ -1,0 +1,255 @@
+---
+title: 'Tutorial 1: linear regression and k-nearest neighbours classification'
+author: "Sarah Filippi"
+date: "5 July 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r message=FALSE}
+library(TH.data)
+library(car)
+```
+
+```{r echo=FALSE}
+options(width=120)
+```
+
+## Linear Regression
+
+This question will consider the bodyfat dataset:
+```{r}
+data(bodyfat)
+head(bodyfat)
+```
+
+**Regression: preliminary tasks**
+
+* Read the documentation for bodyfat by typing ?bodyfat
+* Make plots to investigate relationships amongst the predictor variables
+```{r}
+scatterplotMatrix(~age+waistcirc+hipcirc+elbowbreadth + kneebreadth + anthro3a + anthro3b + anthro3c + anthro4,data=bodyfat)
+```
+
+Visually we can see that a lot of the predictor variables are correlated with each other, which can cause issues for linear regression. We confirm numerically:
+```{r}
+round(cor(bodyfat),2)
+```
+* Make plots to investigate relationships between the predictor variables and the label we wish to predict, ``DEXfat``
+```{r}
+for(v in names(bodyfat)) {
+  if(v != "DEXfat")
+    plot(bodyfat[,v],bodyfat$DEXfat,xlab=v,ylab="DEXfat",main=sprintf("Correlation: %.02f",cor(bodyfat[,v],bodyfat$DEXfat)))
+}
+```
+All variables seem worth including, as they all have a decent amount of correlation with the target variable.
+
+**Analysis**
+
+* Make a table of the correlations between each predictor variable and ``DEXfat'', ranked from largest (in magnitude) to small (in magnitude). (Challenge: 
+can you do this without using a for loop?)
+```{r}
+cors = cor(bodyfat)[,"DEXfat"]
+cors[order(-cors)][2:10]
+```
+* Fit a series of linear models using ``lm`` with: just an intercept term, an intercept and the highest correlated predictor, an intercept and the two highest correlated predictors, and so on. 
+```{r}
+# Here are the first 4 models
+fit1 = lm(DEXfat ~ 1,data=bodyfat)
+fit2 = lm(DEXfat ~ hipcirc,data=bodyfat)
+fit3 = lm(DEXfat ~ hipcirc + waistcirc,data=bodyfat)
+fit4 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a,data=bodyfat)
+fit5 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4,data=bodyfat)
+```
+* Which model do you think is the best? Why?
+```{r}
+summary(fit1)
+summary(fit2)
+summary(fit3)
+summary(fit4)
+summary(fit5)
+```
+I prefer the third model to the fourth model as I think that the inclusion of anthro4 is not adding any independent information due to collinearity and might actually be detracting. Check how the p-value of anthro3a went from significant to not significant after anthro4 was included.
+
+We now implement a leave-one-out crossvalidation scheme.
+```{r loocv}
+datadf = bodyfat
+LOOCV <- function(model){
+  # model is the formula of the linear model to be used
+
+  # number of data
+  n <- dim(datadf)[1]
+  
+  # Vector for storing the square errors
+  CV = matrix(nrow=n, ncol=1)
+  
+  for (i in 1:n){
+    # training and test datasets
+    train <- datadf[-i,]
+    test <- datadf[i,]
+    # train the model on the training dataset
+    mod <- lm(formula= model, data=train)
+    # use the trained model to make prediction on the test data
+    yhat <- predict(mod, newdata=test)
+    # Calculate the square error of prediction 
+    CV[i] <- (yhat - test$DEXfat)^2
+  }
+  
+  Mean_CV <- mean(CV)
+return(Mean_CV)
+}
+
+LOOCV(fit1$call[2])
+LOOCV(fit2$call[2])
+LOOCV(fit3$call[2])
+LOOCV(fit4$call[2])
+LOOCV(fit5$call[2])
+```
+
+We can confirm my intuition with crossvalidation. As I guessed, the fourth model ``fit4`` is the best (smaller loss is better!)
+
+Note that there is a magic statistical trick to perform leave-one-out crossvalidation with ```lm``` (https://gerardnico.com/lang/r/cross_validation) -- which is implemented below:
+```{r}
+loocv=function(fit){
+  h=lm.influence(fit)$h
+  mean((residuals(fit)/(1-h))^2)
+}
+loocv(fit1)
+loocv(fit2)
+loocv(fit3)
+loocv(fit4)
+loocv(fit5)
+```
+
+
+Here is an even better model:
+```{r}
+fit6 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + kneebreadth,data=bodyfat)
+LOOCV(fit6)
+```
+
+## Classification
+
+The MNIST dataset contains hand-written images of the digits from 0 to 9. Read about it here: http://yann.lecun.com/exdb/mnist/ The original dataset of digits contains 60,000 training examples and 10,000 testing examples.
+
+We will focus on binary classification to see if we can build a classifier to distinguish between twos and fives. But first, we will try linear regression and see why it is not a great choice for classification. 
+
+Here are a few examples of the input data:
+
+```{r}
+load("data/mnist-2s-and-5s.RData")
+marsave=par("mar")
+par(mfrow=c(2,5))
+par(mar=c(0, 0, 0, 0), xaxs='i', yaxs='i')
+
+plot.digit = function(im) {
+    image(1:28, 1:28, t(apply(im, 2, rev)) , col=gray((0:255)/255), 
+          xaxt='n',yaxt='n',xlab='n',ylab='n')
+}
+
+for(digit in c(2,5)) {
+  for (idx in which(y_train == digit)[1:5]) { 
+    plot.digit(x_train[idx,,])
+  }
+}
+```
+
+**Tasks**
+
+* Inspect the data. What format are the inputs? What format are the outputs? How big is the training dataset, ``x_train`` and ``y_train``? How big is the test dataset, ``x_test`` and ``y_test``?
+```{r}
+dim(x_train)
+length(y_train)
+dim(x_test)
+length(y_test)
+head(y_train)
+```
+The inputs are given as arrays, indexed by observation 1, ..., 11379. For each observation, there is a 28x28 matrix corresponding to the pixels.
+The test dataset has 1924 rows. The labels consist of integer values, i.e. ``y_train`` is a vector o 5's and 2's.  
+
+
+* Linear regression is not usually recommended for binary classification, but we could try it. Here is a try:
+```{r}
+X_train = as.data.frame(data.matrix(array(x_train,c(nrow(x_train),28*28)))) # reshape the inputs for linear regression
+X_train$y = y_train
+fit = lm(y ~ ., data=X_train)
+```
+* Why is linear regression a bad choice theoretically? In practice, what is wrong about our application of linear regression? Hint: look at the predictions on the training and testing data. 
+
+**Answer** Theoretically, linear regression is a method for regression, so using it for classification does not really make sense. In practice, we have labels 2 and 5---what is the interpretation of a predicted value of 3.71 or 6 or 1? More sensible if we insisted on using this method would be to use labels 0 and 1. But better would be to use an appropriate linear model for classification---the most widely used is called logistic regression. 
+
+```{r}
+X_test = as.data.frame(data.matrix(array(x_test,c(nrow(x_test),28*28))))
+X_test$y = y_test
+y_train_hat = predict(fit,X_train)
+y_test_hat = predict(fit,X_test)
+```
+* What do you think went wrong with our model when faced with the following observations? Check the coefficients of the linear model using ```coef()```. (Hint: this is an example of overfitting.)
+
+**Answer** some of the coefficients are very very large! Think about the dataset--could it possibly be the case that a few pixel values are so much more important than the rest? The answer is no. The problem is that we have very collinear data.
+```{r}
+coefs = coef(fit)
+coefs[order(-coefs)][1:10]
+```
+
+```{r}
+plot.digit(x_test[which.min(y_test_hat),,])
+plot.digit(x_test[which.max(y_test_hat),,])
+```
+
+
+
+**Build a k-nearest neighbours classifier**
+
+* Now we are ready to try an actual classification method! Implement, from scratch, a k-nearest neighbours method. Your implementation should be in the form of a function or set of functions. It should take an input dataset ``X``, set of labels ``y``, value ``k`` (the number of nearest neighbours), and a new input ``xstar`` and it should return a probabilistic classification between 0 and 1 giving the probability that ``xstar`` is a 5. Write your function without a for loop! To test it, you should start with a small random sample of the inputs, e.g.:
+```{r}
+X_train = data.matrix(array(x_train,c(nrow(x_train),28*28)))
+ii = sample(nrow(X_train),200)
+X_train1 = X_train[ii,]
+y_train1 = y_train[ii]
+```
+
+
+## Answer
+```{r}
+X_train = data.matrix(array(x_train,c(nrow(x_train),28*28)))
+X_test = data.matrix(array(x_test,c(nrow(x_test),28*28)))
+knn = function(X,y,k,xstar) {
+  ii = order(apply(X,1,function(x) sum((x - xstar)^2)))[1:k]
+  return(mean(y[ii] == 5))
+}
+k = 3
+jj = sample(nrow(X_train),300) # subsample of training data (this is another way to speed things up)
+ii = sample(nrow(X_test),200) # subsample of testing data
+y_hat_test = vapply(ii,function(i) knn(X_train[jj,], y_train[jj],k,X_test[i,]),0)
+mean((y_hat_test > .5) == (y_test[ii] == 5))
+
+```
+
+* Test your classifier on a few training instances. Test your classifier on a few testing instances. Test your classifier on the instances that the linear regression classifier had trouble with above. What do you observe? Try different values of k. What do you observe? 
+
+See above---our classifier does very well (98%-99% test accuracy with only a fraction of the training data). Here we test it on a few values of k.
+```{r}
+jj = sample(nrow(X_train),300) # subsample of training data (this is another way to speed things up)
+for(k in 2:20) {
+  ii = sample(nrow(X_test),200) # subsample of testing data
+  y_hat_test = vapply(ii,function(i) knn(X_train[jj,], y_train[jj],k,X_test[i,]),0)
+  print(  mean((y_hat_test > .5) == (y_test[ii] == 5)))
+}
+```
+Smaller k seems to be better.
+
+Our classifier has no problem with the instances that linear regression got wrong:
+```{r}
+print(sprintf("Prob of 5: %.02f; true class = %d",
+              knn(X_train,y_train,5,x_test[which.min(y_test_hat),,]),
+                y_test[which.min(y_test_hat)]))
+
+print(sprintf("Prob of 5: %.02f; true class = %d",
+              knn(X_train,y_train,5,x_test[which.max(y_test_hat),,]),
+                y_test[which.max(y_test_hat)]))
+```
+
+

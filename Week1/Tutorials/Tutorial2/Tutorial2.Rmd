@@ -1,0 +1,146 @@
+---
+title: 'Tutorial 2: Unsupervised learning and regression via neural network'
+author: "Sarah Filippi and Xenia Miscouridou"
+date: "5 July 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+# load packages and set random seed
+library(MASS)
+library(deepnet)
+set.seed(12345)
+```
+
+# Q1: Principal Component Analysis
+
+Consider the US arrests dataset. This dataset contains statistics in arrests per 100,000 residents for assault, murder, and rape in each of the 50 US states in 1973. Also given is the percent of the population living in urban areas. Please look at the description of the dataset.
+
+```{r, echo=T}
+?USArrests
+```
+
+We start by looking at the data with a pairplot.
+
+```{r, echo=T, fig=T}
+pairs(USArrests)
+```
+
+* Perform principal component analysis on the dataset using the command `prcomp`. Note that you don't have to specify the (maximum) number of principal components to be used. 
+* Produce a plot of the proportion of variance explained by each principal component, and the cumulative variance explained, similar to the graph seen in lectures. The command `prcomp` above returns the standard deviations of the principal components therefore you can use that but don't forget to transform the standard deviations into variance. For plotting you can use the `barplot` command.
+* Produce a plot of the data in the PC1-PC2 space i.e. by using only the first two components returned by PCA. Note that the projection of the data on this space can be obtained using the output of the `prcomp` (see help file).
+
+Prior to performing principal component analysis, you should scale the data using the following command.
+
+```{r, echo=T}
+X <- scale(USArrests)
+```
+
+# Q2: K-means clustering
+
+* Use the command `kmeans` to perform k-means clustering of the observations in the US arrests dataset. You should use the scaled data for the clustering analysis. Start by considering 2 clusters. Using your result from question 1, retain the first two PC components in order to plot the data in the PC1-PC2 space, but colour the points by their cluster assignment.
+
+Repeat the clustering analysis with different number of clusters. (eg 3,4 and anything else you want)
+
+# Q3: Hierarchical clustering
+
+We now want to cluster the observations using hierarchical clustering.
+
+* Perform hierarchical clustering on the dataset with your choice of distance metric (in lectures we saw the euclidean distance but there also exists the squared euclidean distance, the manhattan distance, mahalanobis and others) and linkage criterion (this is the way to measure how far apart the clusters are and in lectures we saw min, max, group average and distance between centroids). 
+
+* Start by computing a distance matrix for all the datapoints in the data X using the Euclidean distance as a metric. (Hint: you can obtain the distance matrix by using the `dist` function)
+
+* After computing the distance matrix you should perform hierarchical clustering using the command `hclust` which takes as an input the distance matrix obtained above
+
+* Plot the resulting dendrogram and decide at which point you want to cut it to produce your final result. 
+
+* Repeat the clustering using different distance metrics and linkage criteria.
+
+
+
+# Q4: Neural networks
+
+Consider the Boston Housing dataset available with the MASS package. Please look at the description of the dataset.
+
+```{r}
+data(Boston)
+?Boston
+```
+
+## a) Data Splitting and Preprocessing
+
+Split the dataset into a training and testing set containing respectively 70% and 30% of the data.
+
+```{r}
+y <- Boston[,14]
+x <- Boston[,1:13]
+TEST_SIZE <- 0.3
+test_indices <- sample(1:nrow(x), size=as.integer(TEST_SIZE*nrow(x)), replace=FALSE)
+x_train <- x[-test_indices,]
+y_train <- y[-test_indices]
+x_test <- x[test_indices,]
+y_test <- y[test_indices]
+```
+
+It is good practice to normalize your data before training a neural network. There are several methods to scale the data (z-normalization, min-max scale, etc...) prior to training the network. Choose one type of normalisation and apply it to the training set.
+
+Here I chose to use the z-normalisation so that each variable has mean zero and variance 1.
+
+```{r}
+training_means <- apply(x_train, MARGIN=c(2), mean)
+training_sds <- apply(x_train, MARGIN=c(2), sd)
+
+y_train_mean <- mean(y_train)
+y_train_sd <- sd(y_train)
+
+x_train_ <- scale(x_train)
+y_train_ <- scale(y_train)
+```
+
+## b) Training the network
+
+Below is the code to train a fully connected network with \* two hidden layers with size 5 \* tanh non-linearities for the hidden layers
+
+Here I use the `deepnet` package as we only consider simple networks in this course. For more complex networks you can use the R Interface to Keras, which is a wrapper around the Python module TensorFlow.
+
+```{r}
+N_EPOCHS <- 20
+BATCH_SIZE <- 64
+
+nn <- nn.train(x_train_, y_train_,
+               hidden=c(5,5),
+               activationfun="tanh",
+               learningrate=1e-1,
+               batchsize=BATCH_SIZE,
+               numepochs=N_EPOCHS,
+               output="linear",
+               momentum=0.0)
+```
+
+To ensure that the network is training correctly, we plot the loss for each epoch - it should have a decreasing trend, although there may be some small increases due to stochasticity.
+
+```{r}
+# nn$L contains the loss for each batch
+epoch_indices <- parallel::splitIndices(length(nn$L), N_EPOCHS)
+epoch_losses <- sapply(epoch_indices, function(idxs) mean(nn$L[idxs]))
+plot(1:length(epoch_losses), epoch_losses, type="b", xlab="Epoch", ylab="Loss")
+```
+
+If your network is not training properly you can change \* the learning rate \* the batch size \* the number of epochs
+
+## c) Making predictions
+
+Make predictions on the test set and calculate the MSE.
+
+Plot the predicted values as a function of the real value on the test set.
+
+## d) Architecture search
+
+Neural networks have many hyperparameters relating to the architecture and training procedure. These include \* the number of hidden layers and their size \* the learning rate \* the optimisation algorithm \* the batch size
+
+Compare some different networks by varying some of these hyperparameters. These would be selected using cross-validation in practice, but here you can compare them using their test MSEs.
+
