@@ -69,11 +69,64 @@ correlation[order(correlation, decreasing = TRUE),]
 Which predictor variables are most correlated with "DEXfat"?
 * Fit a series of linear models using ``lm`` with: just an intercept term, an intercept and the highest correlated predictor, an intercept and the two highest correlated predictors, and so on.
 ```{R}
-# Here fit 5 
+# Here fit 5 linear models
+fit1 = lm(data = bodyfat, formula = DEXfat ~ 1)
+fit2 = lm(data = bodyfat, formula = DEXfat ~ hipcirc)
+fit3 = lm(data = bodyfat, formula = DEXfat ~ hipcirc + waistcirc)
+fit4 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a, data = bodyfat)
+fit5 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4, data = bodyfat)
+fit6 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4 + anthro3c, data = bodyfat)
+fit7 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4 + anthro3c + anthro3b, data = bodyfat)
+fit8 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4 + anthro3c + anthro3b + kneebreadth, data = bodyfat)
+fit9 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + anthro4 + anthro3c + anthro3b + kneebreadth + age, data = bodyfat)
+
 ```
 * Which model do you think is the best? Why?
+```{R}
+summary(fit1)
+summary(fit2)
+summary(fit3)
+summary(fit4)
+summary(fit5)
+```
 * Perform leave-one-out cross-validation and compare the models in terms of average leave-one-out Sum of Square Errors.
+```{R}
+datadf = bodyfat
+# function performing leave-one-out cross-validation
+LOOCV = function(model) {
+  n = dim(bodyfat)[1]
+  # Vector for storing square errors
+  SE = matrix(nrow = n, ncol = 1)
+  
+  for (i in 1:n) {
+    train = datadf[-i,]
+    test = datadf[i,]
+    
+    # Train the linear model based on training dataset
+    linear_model = lm(formula = model$call["formula"], data = train)
+    # Use the trained model to predict the output of the test input
+    yhat = predict(linear_model, newdata = test)
+    # Calculate the square error
+    SE[i] = (yhat - test$DEXfat)^2
+  }
+  return(mean(SE))
+}
 
+LOOCV(fit1)
+LOOCV(fit2)
+LOOCV(fit3)
+LOOCV(fit4)
+LOOCV(fit5)
+LOOCV(fit6)
+LOOCV(fit7)
+LOOCV(fit8)
+LOOCV(fit9)
+```
+A better model from solution:
+```{R}
+fit10 = lm(DEXfat ~ hipcirc + waistcirc + anthro3a + kneebreadth,data=bodyfat)
+LOOCV(fit10)
+```
 
 ## Classification
 
