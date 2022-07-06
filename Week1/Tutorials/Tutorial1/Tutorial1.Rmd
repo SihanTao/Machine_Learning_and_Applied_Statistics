@@ -43,18 +43,34 @@ head(bodyfat)
 
 * Read the documentation for bodyfat by typing ?bodyfat
 * Make plots to investigate relationships amongst the predictor variables
+```{R}
+scatterplotMatrix(~age+waistcirc+hipcirc+elbowbreadth + kneebreadth + anthro3a + anthro3b + anthro3c + anthro4,data=bodyfat)
+```
 * Make plots to investigate relationships between the predictor variables and the label we wish to predict, ``DEXfat``
 
 To get you started, here are a few plots. You can also consider using ``scatterplot.matrix`` from the ``car`` library.
 ```{r}
-plot(bodyfat$hipcirc,bodyfat$waistcirc)
-plot(bodyfat$hipcirc,bodyfat$DEXfat)
+# plot(bodyfat$hipcirc,bodyfat$waistcirc)
+# plot(bodyfat$hipcirc,bodyfat$DEXfat)
+for (v in colnames(bodyfat)) {
+  if (v != "DEXfat") {
+    plot(bodyfat[[v]], bodyfat[["DEXfat"]], xlab=v, ylab="DEXfat", main = sprintf("Correlation: %.2f", correlation[v,]))
+  }
+}
 ```
 
 **Analysis**
 
-* Make a table of the correlations between each predictor variable and "DEXfat", ranked from largest (in magnitude) to small (in magnitude). Which predictor variables are most correlated with "DEXfat"?
+* Make a table of the correlations between each predictor variable and "DEXfat", ranked from largest (in magnitude) to small (in magnitude).
+```{R}
+correlation=cor(bodyfat[-2],bodyfat[2])
+correlation[order(correlation, decreasing = TRUE),]
+```
+Which predictor variables are most correlated with "DEXfat"?
 * Fit a series of linear models using ``lm`` with: just an intercept term, an intercept and the highest correlated predictor, an intercept and the two highest correlated predictors, and so on.
+```{R}
+# Here fit 5 
+```
 * Which model do you think is the best? Why?
 * Perform leave-one-out cross-validation and compare the models in terms of average leave-one-out Sum of Square Errors.
 
