@@ -31,20 +31,45 @@ pairs(USArrests)
 ```
 
 * Perform principal component analysis on the dataset using the command `prcomp`. Note that you don't have to specify the (maximum) number of principal components to be used. 
+```{R}
+x_train = scale(USArrests)
+pca = prcomp(x_train)
+```
 * Produce a plot of the proportion of variance explained by each principal component, and the cumulative variance explained, similar to the graph seen in lectures. The command `prcomp` above returns the standard deviations of the principal components therefore you can use that but don't forget to transform the standard deviations into variance. For plotting you can use the `barplot` command.
+```{R}
+pca_variance = pca$sdev ^ 2
+cumulative_sum = cumsum(pca_variance)
+pca_variance_proportion = pca_variance / sum(pca_variance)
+pca_variance_proportion_cum = cumsum(pca_variance_proportion)
+barplot(pca_variance_proportion, names.arg = colnames(pca$rotation))
+```
+```{R}
+plot(1:4,pca_variance_proportion_cum, type='o')
+```
 * Produce a plot of the data in the PC1-PC2 space i.e. by using only the first two components returned by PCA. Note that the projection of the data on this space can be obtained using the output of the `prcomp` (see help file).
 
 Prior to performing principal component analysis, you should scale the data using the following command.
 
 ```{r, echo=T}
 X <- scale(USArrests)
+plot(pca$x[,1],pca$x[,2])
 ```
 
 # Q2: K-means clustering
 
 * Use the command `kmeans` to perform k-means clustering of the observations in the US arrests dataset. You should use the scaled data for the clustering analysis. Start by considering 2 clusters. Using your result from question 1, retain the first two PC components in order to plot the data in the PC1-PC2 space, but colour the points by their cluster assignment.
+```{R}
+two_clusters = kmeans(x_train,2)
+plot(pca$x[,1],pca$x[,2],xlab = "PC1",ylab = "PC2", col = two_clusters$cluster)
+```
 
 Repeat the clustering analysis with different number of clusters. (eg 3,4 and anything else you want)
+```{R}
+for (i in 2:4) {
+  clusters = kmeans(x_train, i)
+  plot(pca$x[,1],pca$x[,2],xlab = "PC1",ylab = "PC2", col =            clusters$cluster, main = sprintf("%d Clusters", i))
+}
+```
 
 # Q3: Hierarchical clustering
 
@@ -108,7 +133,7 @@ Below is the code to train a fully connected network with \* two hidden layers w
 Here I use the `deepnet` package as we only consider simple networks in this course. For more complex networks you can use the R Interface to Keras, which is a wrapper around the Python module TensorFlow.
 
 ```{r}
-N_EPOCHS <- 20
+N_EPOCHS <- 100
 BATCH_SIZE <- 64
 
 nn <- nn.train(x_train_, y_train_,
@@ -135,6 +160,9 @@ If your network is not training properly you can change \* the learning rate \* 
 ## c) Making predictions
 
 Make predictions on the test set and calculate the MSE.
+```{R}
+
+```
 
 Plot the predicted values as a function of the real value on the test set.
 
