@@ -155,6 +155,9 @@ for(digit in c(2,5)) {
 **Tasks**
 
 * Inspect the data. What format are the inputs? What format are the outputs? How big is the training dataset, ``x_train`` and ``y_train``? How big is the test dataset, ``x_test`` and ``y_test``?
+```{R}
+# Inputs 
+```
 * Linear regression is not usually recommended for binary classification, but we could try it. Here is a try:
 ```{r}
 X_train = as.data.frame(data.matrix(array(x_train,c(nrow(x_train),28*28)))) # reshape the inputs for linear regression
