@@ -224,4 +224,23 @@ abline(a = 0, b = 1, col = "red")
 Neural networks have many hyperparameters relating to the architecture and training procedure. These include \* the number of hidden layers and their size \* the learning rate \* the optimisation algorithm \* the batch size
 
 Compare some different networks by varying some of these hyperparameters. These would be selected using cross-validation in practice, but here you can compare them using their test MSEs.
+```{r}
+train_nn_wrapper <- function(hidden_spec) {
+  nn.train(x_train_, y_train_,
+               hidden=hidden_spec,
+               activationfun="tanh",
+               learningrate=1e-1,
+               batchsize=BATCH_SIZE,
+               numepochs=N_EPOCHS,
+               output="linear",
+               momentum=0.0)
+}
+
+architecture_list <- list(one_hidden_layer=c(5), two_hidden_layers=c(5,5), three_hidden_layers=c(5,5,5))
+nn_list <- lapply(architecture_list, train_nn_wrapper)
+mse <- function(y_true, y_obs) { mean((y_true-y_obs)**2.0) }
+mse_list <- sapply(nn_list, function(net) mse(y_test_, nn.predict(net, x_test_)))
+
+barplot(mse_list, names.arg=names(mse_list), ylab="Test MSE")
+```
 
