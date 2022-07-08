@@ -1,0 +1,221 @@
+---
+title: "Machine Learning -- Decision Trees and Random Forest"
+author: "Sarah Filippi"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+# load packages and set random seed
+library(randomForest)
+library(MASS)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(data.table)
+library(ggplot2)
+library(matrixStats)
+library(rpart)
+library(rpart.plot)
+set.seed(12345)
+```
+
+# Regression using decision trees
+
+Consider the Boston Housing dataset. We start by downloading and looking at the dataset.
+
+```{r}
+data(Boston)
+pairs(Boston)
+```
+
+We start by fitting a decision tree regression model on this dataset.
+```{r}
+fit = rpart(medv ~ .,data=Boston)
+```
+
+We now plot the tree for different complexity level.
+```{r}
+zp <- prune(fit, cp = 0.05)
+rpart.plot(zp,type=0,extra=0)
+
+zp <- prune(fit, cp = 0.005)
+rpart.plot(zp,type=0,extra=0)
+```
+How stable is the tree regression model to boostrap of the data?
+```{r}
+set.seed(123)
+fit2 = rpart(medv ~ .,data=Boston[sample(dim(Boston)[1], size=dim(Boston)[1], replace=TRUE),])
+zp <- prune(fit2, cp = 0.005)
+rpart.plot(zp,type=0,extra=0)
+```
+
+
+
+# Random forest regression
+
+## a) Fitting an RF model with default hyperparameters
+
+Now we will fit a random forest regression model to the dataset.
+
+The main function in the package is `randomForest::randomForest`, which fits the random forest model. Read the documetation carefully and try to identify how the arguments in the funciton relate to the concepts discussed in the lectures.
+
+To fit a random forest **with default hyperparameters**, we use the following command:
+
+```{r}
+y <- Boston[,14]
+x <- Boston[,1:13]
+rf <- randomForest(x,y)
+print(rf)
+```
+
+The model infers the type of model (classification or regression) from the type of the `y` argument. Since we have passed a numeric vector `randomForest` has returned a regression model. 
+
+## b) Making predictions
+
+Once we have fitted the model we can use it to make predictions. If we pass an object with class `randomForest` to `predict` with no other arguments we get the predictions on the out-of-bag (OOB) examples (you can find this information in the documentation for `predict.randomForest`).
+
+```{r}
+yhat_oob <- predict(rf)
+```
+
+We can plot these OOB predictions vs. their true values with
+```{r}
+qplot(yhat_oob, y) + geom_abline(slope=1, intercept=0, colour="red")
+```
+
+Use the `newdata` argument to make new predictions on a specified set of examples.
+
+```{r}
+yhat <- predict(rf, newdata=x)
+```
+
+Now we compare these predictions to the OOB predictions:
+
+```{r}
+data.frame(y=y, yhat=yhat, yhat_oob=yhat_oob) %>%
+  pivot_longer(-y, names_to="label", values_to="prediction") %>%
+  ggplot(aes(x=y, y=prediction, colour=label)) + geom_point() +
+    geom_abline(slope=1, intercept=0)
+```
+
+## c) Mean-squared error of OOB predictions
+
+The predictions `yhat` are made on the same examples as `yhat_oob`, but the predictions are different.
+* Why is this?
+* Which would you expect to have the lower mean squared error (MSE)? Calculate the MSE for each set of predictions and check.
+* What is the reason for this difference?
+* What does this difference imply for model selection?
+
+```{r}
+# calculate the MSE for the yhat and yhat_oob
+mse <- function(y_true, y_obs) { mean((y_true-y_obs)**2.0) }
+
+mse_yhat <- mse(y, yhat)
+mse_yhat_oob <- mse(y, yhat_oob)
+cat(sprintf("MSE on yhat: %.3f, MSE on yhat_oob: %.3f\n", mse_yhat, mse_yhat_oob))
+```
+
+* `yhat` are the aggregated predictions from the whole forest on the training data, while `yhat_oob` are the aggregated predictions from the trees that did not see the examples during training.
+* The OOB predictions will have a larger MSE.
+* The OOB predictions are only made by trees that have not seen those examples before.
+* The OOB predictions can be used for model selection as they are closer to true estimates of the generalisation performance. The predictions in `yhat` are optimistically biased and so should not be used for model selection.
+
+## d) Random forest hyperparameters
+
+The main hyperparameters of randomForest are :
+* mtry: the number of features considered at each split point.
+* ntree: the number of trees in the forest.
+* nodesize: the maximum number of examples that are allowed at each leaf node.
+* maxnodes: the maximum number of allowed leaf nodes in each tree.
+
+There is not a general rule for which values of mtry will underfit or overfit a particular dataset - you must try a range of values during cross-validation. However, as the value of mtry approaches the number of features the individual trees in the forest will become more correlated as they consider more similar sets of features. This can lead to worse performance as bagging assumes that the base learners are approximately independent. The computational cost of the RF algorithm is linear in mtry.
+
+For fixed values of the other hyperparameters, increasing the number of trees cannot lead to additioanal overfitting. This is because adding trees reduces the variance of the full model. Increasing the number of trees also gives more stable results, although is more computationall expensive (fitting the tree is linear in ntree). In general, you want to select the lowest value of ntree that gives stable results
+
+The lowest value of nodesize is 1, which constructs trees with only a single example at each leaf. This model is likely to overfit the training data. The other extreme leads to decision stumps (trees with only one level), which are likely underfit the training data. A suitable intermediate value should be selected using cross-validation.
+
+maxnodes is strongly related to the choice of nodesize - if the number of leaf nodes is restricted to a low number then those leaf nodes will contain a lot of examples and the trees may underfit the data. Similarly, a large number of leaf nodes may lead to overfitting.
+
+## e) Selecting hyperparameters using OOB error
+
+Above we used default hyperparameters, but in general hyperparameters must be selected as part of model selection. One approach is to use the OOB error estimates to identify hyperparameters (alternatively, we can use cross-validation).
+
+```{r}
+# model selecion using cross-validation
+TEST_SIZE <- 0.3
+
+# split the examples into training and test
+test_indices <- sample(1:nrow(x), size=as.integer(TEST_SIZE*nrow(x)), replace=FALSE)
+x_train <- x[-test_indices,]
+y_train <- y[-test_indices]
+x_test <- x[test_indices,]
+y_test <- y[test_indices]
+
+# grid over which we will perform the hyperparameter search:
+hparam_grid <- as.data.frame(expand.grid(mtry=seq(3, 13, by=2), maxnodes=seq(10, 50, by=10)))
+
+# to store the OOB estimates of the MSE
+oob_mses <- rep(0.0, nrow(hparam_grid))
+
+# perform the gridsearch
+for(hparam_idx in 1:nrow(hparam_grid)) {
+  # train candidate model
+  this_mtry <- hparam_grid[hparam_idx, 1]
+  this_maxnodes <- hparam_grid[hparam_idx, 2]
+  rf <- randomForest(x_train, y_train, mtry=this_mtry, maxnodes=this_maxnodes)
+  
+  # calculate OOB MSE
+  oob_mses[hparam_idx] <- mse(y_train, predict(rf))
+}
+
+# select the best model (that which has the minimum OOB MSE)
+best_hparam_set <- hparam_grid[which.min(oob_mses),]
+
+# train a model on the whole training set with the selected hyperparameters
+rf_final <- randomForest(x_train, y_train,
+                         mtry=best_hparam_set$mtry,
+                         maxnodes=best_hparam_set$maxnodes,
+                         importance=TRUE)
+
+# the test performance of the final model
+yhat_test <- predict(rf_final, newdata=x_test)
+
+# default hyperparmaeter model
+rf_default <- randomForest(x_train, y_train)
+yhat_test_default <- predict(rf_default, newdata=x_test)
+
+# MSEs
+test_mse <- mse(y_test, yhat_test)
+test_mse_default <- mse(y_test, yhat_test_default)
+
+cat(sprintf("Test MSE with default hyperparameters: %.3f, Test MSE with OOB-tuned hyperparameters: %.3f\n", test_mse_default, test_mse))
+```
+
+## f) Variable importance
+
+Calculate and plot the variable importance for your final model using both Gini and permutation importance.
+
+```{r}
+# calculate each type of RF importance
+rf_importance <- cbind(importance(rf_final, type=1), importance(rf_final, type=2)) %>%
+  as.data.frame() %>%
+  rownames_to_column("variable") 
+  
+# plot importances
+rf_importance %>%
+  mutate_if(is.numeric, function(x) x/sum(x)) %>%
+  pivot_longer(-variable, names_to="varimp_type", values_to="normalised_importance") %>%
+  ggplot(aes(x=variable, y=normalised_importance, fill=varimp_type)) + 
+    geom_col(position="dodge") + 
+  ggtitle(sprintf("Spearman(Gini,perm)=%.2f",
+                  cor(rf_importance$IncNodePurity, rf_importance$`%IncMSE`, method="spearman")))
+```
+
+Since Gini and permutation importance are on different scales they have both been normalised to [0,1]. The Spearman correlation between the two sets of variable importances is 0.92, so the two sets of rankings are very similar in this case.
+
+Random forest variable importance measures are known to be biased in many scenarios (see Strobl et al, 2007) and so these scores should be interpreted with care.
+
+
