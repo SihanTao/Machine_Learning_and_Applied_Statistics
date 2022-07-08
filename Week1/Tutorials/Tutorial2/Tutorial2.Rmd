@@ -133,7 +133,7 @@ Below is the code to train a fully connected network with \* two hidden layers w
 Here I use the `deepnet` package as we only consider simple networks in this course. For more complex networks you can use the R Interface to Keras, which is a wrapper around the Python module TensorFlow.
 
 ```{r}
-N_EPOCHS <- 100
+N_EPOCHS <- 50
 BATCH_SIZE <- 64
 
 nn <- nn.train(x_train_, y_train_,
@@ -161,10 +161,20 @@ If your network is not training properly you can change \* the learning rate \* 
 
 Make predictions on the test set and calculate the MSE.
 ```{R}
+# Normalize the test data based on mean and std of the training x
+x_test_ = scale(x_test, center = training_means, scale = training_sds)
+y_test_hat_ = nn.predict(nn, x_test_)
 
+# Scale y_test by the mean and std of y_train
+y_test_ = scale(y_test, center = y_train_mean, scale = y_train_sd)
+mean((y_test_-y_test_hat_)^2)
 ```
 
 Plot the predicted values as a function of the real value on the test set.
+```{R}
+plot(y_test_, y_test_hat_)
+abline(a = 0, b = 1, col = "red")
+```
 
 ## d) Architecture search
 
