@@ -1,0 +1,271 @@
+---
+title: 'Tutorial 2: Unsupervised learning and regression via neural network'
+author: "Sarah Filippi and Xenia Miscouridou"
+date: "5 July 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r message=FALSE}
+# load packages and set random seed
+library(MASS)
+library(deepnet)
+library(purrr)
+set.seed(12345)
+```
+
+# Q1: Principal Component Analysis
+
+Consider the US arrests dataset. This dataset contains statistics in arrests per 100,000 residents for assault, murder, and rape in each of the 50 US states in 1973. Also given is the percent of the population living in urban areas. Please look at the description of the dataset.
+
+```{r, echo=T}
+?USArrests
+```
+
+We start by looking at the data with a pairplot.
+
+
+```{r, echo=T, fig=T}
+pairs(USArrests)
+```
+
+
+We will first scale the data to have mean 0 and variance 1. We then perform principal component analysis. 
+
+```{r, echo=T}
+X <- scale(USArrests)
+pca <- prcomp(X)
+```
+
+
+We plot the proportion of variance explained by each principal components:
+
+```{r}
+barplot(pca$sdev^2/sum(pca$sdev^2), names.arg=c("PC1", "PC2", "PC3", "PC4"), ylab="Proportion of variance explained")
+```
+
+as well as the cumulative  of the variance explained
+
+```{r}
+barplot(cumsum(pca$sdev^2/sum(pca$sdev^2))*100, names.arg=c("PC1", "PC2", "PC3", "PC4"), ylab="Cumulative proportion of variance explained")
+```
+
+## iii) 
+
+We can rotate the data into the principal components space using the following command line
+
+```{r}
+rot_X <- pca$x
+```
+
+We can then select the first two PCs and plot them:
+
+```{r}
+plot(rot_X[,1], rot_X[,2], xlab="PC1", ylab="PC2")
+```
+
+# Q2: K-means clustering
+
+We apply kmeans to the dataset, dividing the data into two clusters, and plot the data in the rotated space, colouring the points by their cluster assignment.
+
+```{r}
+km <- kmeans(X,center=2)
+plot(rot_X[,1], rot_X[,2], xlab="PC1", ylab="PC2", col=km$cluster)
+```
+We can repeat the analysis with different number of clusters:
+```{r}
+km <- kmeans(X,center=3)
+plot(rot_X[,1], rot_X[,2], xlab="PC1", ylab="PC2", col=km$cluster)
+
+
+km <- kmeans(X,center=4)
+plot(rot_X[,1], rot_X[,2], xlab="PC1", ylab="PC2", col=km$cluster)
+```
+
+
+# Q3: Hierarchical clustering
+
+The three choices we make in hierarchical clustering are
+* the distance metric
+* the linkage criterion
+* the cut heigthplot
+
+Let's use the Euclidian distance and compute a distance matrix as follows.
+
+```{r, echo=T}
+dist_data <- dist(X, method='euclidean')
+```
+
+We can then perform hierarchical clustering using the complete linkage criteria and plot the resulting dendogram. Complete linkage measures the proximity between two clusters using their farthest neighbour.
+
+```{r, echo=T}
+hdata <- hclust(dist_data)
+plot(hdata)
+abline(h=3.75, lty=2) # this is the height at which we will cut the dendrogram
+```
+
+We can obtain the cluster allocation for each observation when cutting the dendogram at a given height using the following command:
+
+```{r, echo=T}
+alloc <- cutree(hdata, h=3.75)
+```
+
+A height of 3.75 leads to 4 clusters. The choice of cut height is often done "by-eye" following visual inspection of the dendrogam branch lengths (although we can also use the indices from the previous question).
+
+## b)
+
+The code below performs hierarchichal clustering for all combinations of complete, single and average linkage with Euclidean and Manhattan distance.
+
+```{r fig.height=9, fig.width=9}
+get_clust_assignment <- function(dist_method, linkage_method) {
+  hclust(dist(X, method=dist_method), method=linkage_method)
+}
+
+# perform hierarchichal clustering using different arguments
+hclust_args <- expand.grid(dist_method=c("euclidean", "manhattan"), linkage_method=c("complete", "single", "average"))
+hclust_list <- pmap(hclust_args, get_clust_assignment)
+
+# plot the resulting dendrograms
+par(mfrow=c(3,2))
+for(i in 1:length(hclust_list)) {
+  plot(hclust_list[[i]],
+       main=sprintf("%s distance and %s linkage", hclust_args[i,1], hclust_args[i,2]),
+       xlab="State")
+}
+```
+
+This shows the strong effect of the choice of linkage method - using `"complete"` or `"average"` linkage suggests that there are two primary clusters of approximately equal size. Using `"single"` linkage also suggests that there are two clusters but one of those clusters only contains a single state (Alaska). The choice of distance has a smaller effect on the final dendrograms for this dataset.
+
+# Q4: Neural networks
+
+Consider the Boston Housing dataset available with the MASS package. We start by downloading and looking at the dataset.
+
+```{r}
+data(Boston)
+?Boston
+y <- Boston[,14]
+x <- Boston[,1:13]
+pairs(Boston)
+```
+
+## a) Data Splitting and Preprocessing
+
+Split into a training and testing set:
+
+```{r}
+TEST_SIZE <- 0.3
+test_indices <- sample(1:nrow(x), size=as.integer(TEST_SIZE*nrow(x)), replace=FALSE)
+x_train <- x[-test_indices,]
+y_train <- y[-test_indices]
+x_test <- x[test_indices,]
+y_test <- y[test_indices]
+```
+
+It is good practice to normalize your data before training a neural network. There are several methods to scale the data (z-normalization, min-max scale, etc…) prior to training the network. Choose one type of normalisation and apply it to the training set.
+
+Here I chose to use the z-normalisation so that each variable has mean zero and variance 1.
+
+```{r}
+training_means <- apply(x_train, MARGIN=c(2), mean)
+training_sds <- apply(x_train, MARGIN=c(2), sd)
+
+y_train_mean <- mean(y_train)
+y_train_sd <- sd(y_train)
+
+x_train_ <- scale(x_train)
+y_train_ <- scale(y_train)
+```
+
+## b) Training the network
+
+Train a fully connected network with
+* two hidden layers with size 5
+* tanh non-linearities for the hidden layers
+
+The solution will use the `deepnet` package as we will only consider simple networks in this course. For more complex networks you can use the R Interface to Keras, which is a wrapper around the Python module TensorFlow.
+
+Ensure your network is training correctly by plotting the loss for each epoch - it should have a decreasing trend, although there may be some small increases due to stochasticity. If your network is not training properly you can change
+* the learning rate
+* the batch size
+
+```{r}
+
+
+N_EPOCHS <- 20
+BATCH_SIZE <- 64
+
+nn <- nn.train(x_train_, y_train_,
+               hidden=c(5,5),
+               activationfun="tanh",
+               learningrate=1e-1,
+               batchsize=BATCH_SIZE,
+               numepochs=N_EPOCHS,
+               output="linear",
+               momentum=0.0)
+```
+
+The learning curve for this network:
+
+```{r}
+# nn$L contains the loss for each batch
+epoch_indices <- parallel::splitIndices(length(nn$L), N_EPOCHS)
+epoch_losses <- sapply(epoch_indices, function(idxs) mean(nn$L[idxs]))
+plot(1:length(epoch_losses), epoch_losses, type="b", xlab="Epoch", ylab="Loss")
+```
+
+## c) Making predictions
+
+Make predictions on the test set and calculate the MSE. Be careful when calculating the MSE when you rescaled labels - if you were to compare these MSE values to another model such as linear regression that does not require rescaling label they would be smaller, but that does not necessarily indicate the neural network is a better model as its labels are on a smaller scale.
+
+```{r}
+# predictions on test set and MSE
+
+# rescale x_test using mean and variance from the test set
+x_test_ <- scale(x_test, center=training_means, scale=training_sds)
+y_test_hat_ <- nn.predict(nn, x_test_)
+
+# rescale y_test to make it comparable with the network predictions
+y_test_ <- scale(y_test, center=y_train_mean, scale=y_train_sd)
+mean((y_test_-y_test_hat_)**2.0)
+
+```
+
+Plot predicted values as a function of the real value:
+
+```{r}
+plot(y_test_, y_test_hat_)
+abline(0,1, col="red")
+```
+
+## d) Architecture search
+
+Neural networks have many hyperparameters relating to the architecture and training procedure. These include
+* the number of hidden layers and their size
+* the the learning rate
+* the learning rate schedule
+* the optimisation algorithm
+* the batch size
+
+Compare some different networks by varying some of these hyperparameters. These would be selected using cross-validation in practice, but here you can compare them using their test MSEs.
+
+```{r}
+train_nn_wrapper <- function(hidden_spec) {
+  nn.train(x_train_, y_train_,
+               hidden=hidden_spec,
+               activationfun="tanh",
+               learningrate=1e-1,
+               batchsize=BATCH_SIZE,
+               numepochs=N_EPOCHS,
+               output="linear",
+               momentum=0.0)
+}
+
+architecture_list <- list(one_hidden_layer=c(5), two_hidden_layers=c(5,5), three_hidden_layers=c(5,5,5))
+nn_list <- lapply(architecture_list, train_nn_wrapper)
+mse <- function(y_true, y_obs) { mean((y_true-y_obs)**2.0) }
+mse_list <- sapply(nn_list, function(net) mse(y_test_, nn.predict(net, x_test_)))
+
+barplot(mse_list, names.arg=names(mse_list), ylab="Test MSE")
+```
