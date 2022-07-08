@@ -76,6 +76,26 @@ for (i in 2:4) {
 We now want to cluster the observations using hierarchical clustering.
 
 * Perform hierarchical clustering on the dataset with your choice of distance metric (in lectures we saw the euclidean distance but there also exists the squared euclidean distance, the manhattan distance, mahalanobis and others) and linkage criterion (this is the way to measure how far apart the clusters are and in lectures we saw min, max, group average and distance between centroids). 
+```{R}
+# Hierarchical clustering using Euclidean distance
+euclidean_d = dist(X)
+euclidean_hdata = hclust(euclidean_d)
+plot(euclidean_hdata)
+abline(3.75,0,col = "red")
+```
+* Perform hierarchical clustering using 'manhattan' distance
+```{R}
+manhattan_d = dist(X, method = "manhattan")
+manhattan_hdata = hclust(manhattan_d)
+plot(manhattan_hdata)
+abline(6,0,col = "red")
+```
+```{R}
+euclidean_tree = cutree(euclidean_hdata, h = 3.75)
+manhattan_tree = cutree(manhattan_hdata, h = 6)
+plot(euclidean_tree)
+plot(manhattan_tree)
+```
 
 * Start by computing a distance matrix for all the datapoints in the data X using the Euclidean distance as a metric. (Hint: you can obtain the distance matrix by using the `dist` function)
 
@@ -84,9 +104,32 @@ We now want to cluster the observations using hierarchical clustering.
 * Plot the resulting dendrogram and decide at which point you want to cut it to produce your final result. 
 
 * Repeat the clustering using different distance metrics and linkage criteria.
+```{r fig.height=9, fig.width=9}
+get_clust_assignment <- function(dist_method, linkage_method) {
+  hclust(dist(X, method=dist_method), method=linkage_method)
+}
 
+# perform hierarchichal clustering using different arguments
+hclust_args <- expand.grid(dist_method=c("euclidean", "manhattan"), linkage_method=c("complete", "single", "average"))
+hclust_list <- pmap(hclust_args, get_clust_assignment)
 
-
+# plot the resulting dendrograms
+par(mfrow=c(3,2))
+for(i in 1:length(hclust_list)) {
+  plot(hclust_list[[i]],
+       main=sprintf("%s distance and %s linkage", hclust_args[i,1], hclust_args[i,2]),
+       xlab="State")
+}
+```
+* Plot the PC1-PC2 graph using hclust with euclidean distance
+```{r}
+x_pca = pca$x
+plot(x_pca[,1], x_pca[,2], xlab = "PC1", ylab = "PC2",col = euclidean_tree)
+```
+* Plot the graph with manhattan distance
+```{r}
+plot(x_pca[,1], x_pca[,2], xlab = "PC1", ylab = "PC2",col = manhattan_tree)
+```
 # Q4: Neural networks
 
 Consider the Boston Housing dataset available with the MASS package. Please look at the description of the dataset.
