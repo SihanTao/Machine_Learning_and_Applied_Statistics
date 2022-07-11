@@ -1,0 +1,130 @@
+---
+title: "R Notebook for Problem Class 1"
+output: html_notebook
+---
+
+# 4.1.1 Visualisation
+
+## Read in the data
+
+```{r}
+MyData <- read.csv("EUR-GBP-Rates.csv", header = TRUE, sep = ",", dec = ".",fileEncoding="UTF-8-BOM")
+```
+
+## View the data
+
+```{r}
+View(MyData)
+```
+
+## Determine the number of observations in MyData
+
+```{r}
+nrow(MyData)
+```
+
+str function will display the internal structure of an R object
+
+```{r}
+str(MyData)
+```
+
+## print all the values of the GBPtoEUR
+
+```{r}
+MyData$GBPtoEUR
+MyData[, 3]
+```
+
+## Some plotting
+
+```{r}
+plot(MyData$GBPtoEUR, type = 'l', col = 'blue', main = "EUR/GBP exchange rate", xlab = "Time", ylab = "GBP per EUR", cex.main = 1.25, cex.lab = 1.5, cex.axis = 2)
+```
+
+-   **type:** Change the line type
+
+-   **col:** Change the color of the graph
+
+-   **main:** title of the plot
+
+-   **xlab:** label of the x-axis
+
+-   **ylab:** label of the y-axis
+
+-   **cex.main:** size of the plot title
+
+-   **cex.lab:** font size of the labels of the axes
+
+-   **cex.axis:** Size of the tick labels
+
+### compare your initial plot and your modified plot side by side using the function par
+
+```{r}
+par(mfrow=c(1,2))
+MyDates = as.Date(MyData$Date, "%d/%m/%Y")
+plot(MyData$GBPtoEUR)
+plot(MyDates, MyData$GBPtoEUR, type="l",col="blue", main="EUR/GBP
+exchange rate", xlab="Time", ylab="GBP per one EUR", cex.main=1.25, cex.lab=1.5, cex.axis=2)
+par(mfrow=c(1,1))
+```
+
+# 4.1.2 Sample moments and empirical distribution
+
+## Sample mean
+
+$$
+\mathrm{E}(X)=\left\{\begin{array}{ll}\sum_{k} k \mathrm{P}(X=k) & \text { if } X \text { is discrete } \\\int_{-\infty}^{\infty} x f_{X}(x) d x & \text { if } X \text { is continuous. }\end{array}\right.
+$$
+
+Try some R code!
+
+```{r}
+mean(MyData$GBPtoEUR)
+```
+
+## Sample variance
+
+The variance of a random variable $X$ with mean $\mu=\mathrm{E}(X)$ is defined as
+
+$$
+\text{Var}(X) = \operatorname{E}[(X-\mu)^2]
+$$
+
+```{r}
+acf(MyData$GBPtoEUR, type = "covariance", plot = FALSE)
+```
+
+## Empirical distribution
+
+```{r}
+plot.ecdf(MyData$GBPtoEUR)
+```
+
+# 4.1.3 Bonus material: Histograms and (empirical) quantiles
+
+## Histograms and empirical density
+
+```{r}
+hist(MyData$GBPtoEUR)
+```
+
+```{r, fig.height=6, fig.width=9}
+par(mfrow=c(3,3))
+hist(MyData$GBPtoEUR,breaks=4)
+hist(MyData$GBPtoEUR,breaks=8)
+hist(MyData$GBPtoEUR,breaks=12)
+hist(MyData$GBPtoEUR,breaks=16)
+hist(MyData$GBPtoEUR,breaks=20)
+hist(MyData$GBPtoEUR,breaks=24)
+hist(MyData$GBPtoEUR,breaks=28)
+hist(MyData$GBPtoEUR,breaks=32)
+hist(MyData$GBPtoEUR,breaks=36)
+par(mfrow=c(1,1))
+```
+
+## Quantiles
+
+```{r}
+summary(MyData$GBPtoEUR)
+```
