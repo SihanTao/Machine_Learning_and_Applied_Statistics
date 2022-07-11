@@ -20,6 +20,7 @@ tail(MyData)
 MyDates <- as.Date(MyData$Date, "%d/%m/%Y")
 
 #Plot the data
+#type: whether the plot is line or point etc
 plot(MyDates,MyData$GBPtoEUR,type="l", xlab="Time",ylab="EUR/GBP exchange rate")
 plot(MyDates,MyData$EURtoGBP,type="l", xlab="Time",ylab="GBP/EUR exchange rate")
 
