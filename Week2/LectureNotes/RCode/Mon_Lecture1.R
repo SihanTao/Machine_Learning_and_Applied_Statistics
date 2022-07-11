@@ -87,7 +87,7 @@ View(MyData)
 #Print the first part of the data
 head(MyData)
 
- #Print the last part of the data
+#Print the last part of the data
 tail(MyData)
 
 #Convert the dates into the correct date format
