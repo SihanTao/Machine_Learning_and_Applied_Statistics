@@ -1,0 +1,61 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Exercise Sheet 1
+
+## Ex1
+
+A call centre receives calls according to a Poisson process. The expected number of calls it receives in a day is 1523. On any given day, the call centre has enough staff to cope with a maximum of 1600 calls. What is the probability that on any given day the call centre receives more calls than it can cope with.
+
+```{r}
+lambda = 1523
+1 - ppois(1600, lambda)
+```
+
+## Ex2
+
+Write code that simulates a homogeneous temporal Poisson process on $(0, T]$ with intensity λ. Have a go at writing it as a function homogeneouspp(lambda,T), such that it can take any value of λ and T that you wish to give it.
+
+```{r}
+homogeneouspp = function(lambda, T) {
+  N = rpois(1, lambda * T)
+  E = runif(N, min = 0, max = T)
+  E = sort(E)
+  return(E)
+}
+```
+
+Simulate 100 realisations of a Poisson process on (0, 10] with intensity λ = 10.
+
+1.  Verify that the sample mean number of events in the interval (3, 5] is consistent with the expected number of events in (3, 5].
+
+```{r}
+sum = 0
+all_simu = c()
+for (i in 1:100) {
+  N = homogeneouspp(10, 10)
+  len = length(which(N > 3 & N <= 5))
+  sum = sum + len
+}
+sum/100
+```
+
+```{r}
+all_simu
+```
+
+```{r}
+N = c()
+for (i in 1:100) {
+  sim = homogeneouspp(10, 10)
+  len = length(which(sim > 2 & sim <= 8))
+  N[i] = len
+}
+
+hist(N)
+plot(dpois(1:100, 60))
+```
+
+3.  

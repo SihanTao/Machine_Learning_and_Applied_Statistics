@@ -1,5 +1,5 @@
 # slide 92
-
+library(spatstat)
 # load point pattern from csv
 N = read.table('test_data_dense.csv',sep=',')
 # convert into ppp data format for spat stat
