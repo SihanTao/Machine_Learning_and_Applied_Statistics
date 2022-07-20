@@ -29,33 +29,37 @@ homogeneouspp = function(lambda, T) {
 
 Simulate 100 realisations of a Poisson process on (0, 10] with intensity λ = 10.
 
+```{r}
+all_simu = list()
+for (i in 1:100) {
+  N = homogeneouspp(10, 10)
+  all_simu[[i]] = N
+}
+```
+
 1.  Verify that the sample mean number of events in the interval (3, 5] is consistent with the expected number of events in (3, 5].
 
 ```{r}
 sum = 0
-all_simu = c()
 for (i in 1:100) {
-  N = homogeneouspp(10, 10)
-  len = length(which(N > 3 & N <= 5))
-  sum = sum + len
-}
-sum/100
-```
-
-```{r}
-all_simu
-```
-
-```{r}
-N = c()
-for (i in 1:100) {
-  sim = homogeneouspp(10, 10)
-  len = length(which(sim > 2 & sim <= 8))
-  N[i] = len
+  one_sim = all_simu[[i]]
+  sum = sum + length(one_sim[one_sim > 3 & one_sim <= 5])
 }
 
-hist(N)
-plot(dpois(1:100, 60))
+sum / 100
 ```
 
-3.  
+The expected number of events in $(3, 5]$ is the $\lambda$ for the poisson distribution $\text{Poisson}(20)$ which is $20$.
+
+2.  Plot a histogram for the 100 realisations of the number of events N {(2, 8]}
+
+```{r}
+counter = array(0, c(1, 100))
+for (i in 1:100) {
+  one_simu = all_simu[[i]]
+  counter[i] = length(one_simu[one_simu > 2 & one_simu <= 8])
+}
+
+hist(counter, freq = F, breaks = seq(0, 90, 1))
+points(seq(0,90,1),dpois(seq(0,90,1),60))
+```
