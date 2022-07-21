@@ -54,12 +54,25 @@ The expected number of events in $(3, 5]$ is the $\lambda$ for the poisson distr
 2.  Plot a histogram for the 100 realisations of the number of events N {(2, 8]}
 
 ```{r}
-counter = array(0, c(1, 100))
-for (i in 1:100) {
-  one_simu = all_simu[[i]]
-  counter[i] = length(one_simu[one_simu > 2 & one_simu <= 8])
-}
+counter = sapply(all_simu, function(x) {
+  return(length(x[x > 2 & x <= 8]))
+})
 
 hist(counter, freq = F, breaks = seq(0, 90, 1))
 points(seq(0,90,1),dpois(seq(0,90,1),60))
+```
+
+3.  
+
+```{r}
+count1 = sapply(all_simu, function(x) {
+  return(length(x[x > 2 & x <= 5]))
+})
+
+count2 = sapply(all_simu, function(x) {
+  return(length(x[x > 6 & x <= 8]))
+})
+
+rho = cor(count1, count2)
+rho
 ```
