@@ -10,6 +10,14 @@ output: html_notebook
 ### 11.1.1 Simulating an ARMA(1,1) process
 
 ```{r}
+GOOG = read.csv("GOOG.csv", header = TRUE)
+GOOG_price = GOOG$Close
+GOOG_logreturn = diff(log(GOOG_price))
+
+hist(GOOG_logreturn, breaks = 4)
+```
+
+```{r}
 library(ggplot2)
 library(forecast)
 ```
